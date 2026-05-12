@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from api.deps import get_current_user
-from crud.user import create_user, get_user, get_user_by_email, get_users, update_user, delete_user
-from schemas.user import UserCreate, UserUpdate, UserResponse
+from crud.user import create_user, get_user, get_user_by_email, get_users, update_user, delete_user, change_user_password
+from schemas.user import UserCreate, UserUpdate, UserResponse, PasswordChangeRequest
 from models.user import User
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -131,5 +131,29 @@ async def check_email_exists(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"O e-mail {email} já está cadastrado",
+        )
+    return None
+
+
+@router.post(
+    "/change-password",
+    status_code=status.HTTP_200_OK,
+    summary="Alterar senha do usuário",
+)
+async def change_password(
+    password_data: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    success = await change_user_password(
+        session=db,
+        user=current_user,
+        old_password=password_data.old_password,
+        new_password=password_data.new_password,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A senha antiga está incorreta",
         )
     return None

@@ -315,6 +315,31 @@ Verificar se um e-mail já está cadastrado.
 
 ---
 
+#### `POST /users/change-password`
+
+Alterar a senha do usuário autenticado.
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Request Body:**
+
+```json
+{
+  "old_password": "senhaAntiga123",
+  "new_password": "novaSenha456"
+}
+```
+
+**Response — 200 OK**
+
+| Status | Condição |
+|--------|----------|
+| `200` | Senha alterada com sucesso |
+| `400` | Senha antiga incorreta |
+| `401` | Token inválido ou ausente |
+
+---
+
 ## Tokens JWT
 
 | Token | Duração | Uso |

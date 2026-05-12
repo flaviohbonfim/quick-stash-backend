@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models.user import User
 from schemas.user import UserCreate, UserUpdate
-from core.security import get_password_hash
+from core.security import get_password_hash, verify_password
 
 async def create_user(*, session: AsyncSession, user_in: UserCreate) -> User:
     """Criar novo usuário"""
@@ -81,3 +81,14 @@ async def update_user_refresh_token(*, session: AsyncSession, user_id: str, refr
     await session.commit()
     await session.refresh(db_user)
     return db_user
+
+
+async def change_user_password(*, session: AsyncSession, user: User, old_password: str, new_password: str) -> bool:
+    """Alterar senha do usuário"""
+    if not verify_password(old_password, user.password):
+        return False
+    user.password = get_password_hash(new_password)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return True
