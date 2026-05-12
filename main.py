@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.database import Base, engine
 from api.routers.users import router as users_router
 from api.routers.auth import router as auth_router
+from api.routers.payment_methods import router as payment_methods_router
+from api.routers.transactions import router as transactions_router
 
 
 app = FastAPI(title="Users CRUD API", version="1.0.0")
@@ -12,6 +14,8 @@ app = FastAPI(title="Users CRUD API", version="1.0.0")
 async def on_startup():
     async with engine.begin() as conn:
         from models.user import User  # noqa: F401
+        from models.payment_method import PaymentMethod  # noqa: F401
+        from models.transaction import Transaction  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
 
 
@@ -25,6 +29,8 @@ app.add_middleware(
 
 app.include_router(users_router)
 app.include_router(auth_router)
+app.include_router(payment_methods_router)
+app.include_router(transactions_router)
 
 
 _original_openapi = app.openapi

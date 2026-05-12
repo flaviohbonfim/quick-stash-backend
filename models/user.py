@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Boolean
+from sqlalchemy.orm import relationship
 from core.database import Base
 
 
@@ -15,3 +16,5 @@ class User(Base):
     created_at = Column(String, nullable=False, default=lambda: datetime.utcnow().isoformat())
     refresh_token = Column(String, nullable=True)
     updated_at = Column(String, nullable=True)
+
+    payment_methods = relationship("PaymentMethod", back_populates="owner")
