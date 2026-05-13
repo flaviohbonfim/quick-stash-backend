@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create release tag
+        id: tag
+        run: echo "tag=v$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Package release
+        run: |
+          tar -czf quick-stash-${{ steps.tag.outputs.tag }}.tar.gz \
+            --exclude='.git' \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            --exclude='.kilo' \
+            --exclude='*.db' \
+            --exclude='.env' \
+            --exclude='users.db' \
+            --exclude='exemplo/' \
+            .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          files: quick-stash-${{ steps.tag.outputs.tag }}.tar.gz
+          generate_release_notes: true
