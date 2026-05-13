@@ -104,6 +104,7 @@ rsync -a --delete \
   --exclude="__pycache__" \
   --exclude="*.egg-info" \
   --exclude=".kilo" \
+  --exclude=".venv" \
   "$WORK_DIR/" "$APP_DIR/"
 
 # Restaurar .env
@@ -143,19 +144,19 @@ if ! "$PYTHON_PATH" --version &>/dev/null; then
   exit 1
 fi
 
+# Remover .venv existente para evitar conflitos
+if [[ -d "$APP_DIR/.venv" ]]; then
+  log "Removendo .venv existente..."
+  rm -rf "$APP_DIR/.venv"
+fi
+
 # Configurar poetry para usar venv no projeto
 poetry config virtualenvs.in-project true 2>/dev/null || true
 poetry config virtualenvs.create true 2>/dev/null || true
 
-# Criar virtualenv se não existir
-if [[ ! -d "$APP_DIR/.venv" ]]; then
-  log "Criando virtualenv..."
-  "$PYTHON_PATH" -m venv "$APP_DIR/.venv"
-fi
-
-# Usar o Python correto no poetry
+# Configurar poetry para usar o caminho direto do Python (sem depender de shims)
 log "Configurando poetry para usar Python $PYTHON_VERSION..."
-poetry env use "$PYTHON_PATH" 2>&1 || true
+poetry config virtualenvs.path "$APP_DIR/.venv" 2>/dev/null || true
 
 # Verificar se o poetry.lock existe
 if [[ ! -f "$APP_DIR/poetry.lock" ]]; then
@@ -165,7 +166,7 @@ if [[ ! -f "$APP_DIR/poetry.lock" ]]; then
 fi
 
 log "Executando poetry install..."
-poetry install --no-interaction --no-ansi --no-root 2>&1 || {
+PYENV_VERSION="$PYTHON_VERSION" poetry install --no-interaction --no-ansi --no-root 2>&1 || {
   log "ERROR: poetry install falhou."
   log "Tentando instalar com pip como fallback..."
   if [[ -f "$APP_DIR/.venv/bin/python" ]]; then
