@@ -133,9 +133,7 @@ ssh_run "sudo mv /tmp/auto-deploy.sh /usr/local/bin/quick-stash-auto-deploy.sh &
          sudo chmod +x /usr/local/bin/quick-stash-auto-deploy.sh"
 
 info "Registrando cron (a cada 5 minutos)..."
-ssh_run "(crontab -l 2>/dev/null | grep -v quick-stash-auto-deploy; \
-          echo 'PATH=/home/ubuntu/.pyenv/shims:/home/ubuntu/.pyenv/bin:/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'); \
-          echo '*/5 * * * * /usr/local/bin/quick-stash-auto-deploy.sh >> /var/log/quick-stash-deploy.log 2>&1') | crontab -"
+ssh_run "echo 'PATH=/home/ubuntu/.pyenv/shims:/home/ubuntu/.pyenv/bin:/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' > /tmp/qs-cron && echo '*/5 * * * * /usr/local/bin/quick-stash-auto-deploy.sh >> /var/log/quick-stash-deploy.log 2>&1' >> /tmp/qs-cron && (crontab -l 2>/dev/null | grep -v quick-stash-auto-deploy; cat /tmp/qs-cron) | crontab - && rm /tmp/qs-cron"
 
 ssh_run "sudo touch /var/log/quick-stash-deploy.log && \
          sudo chown ubuntu:ubuntu /var/log/quick-stash-deploy.log"
