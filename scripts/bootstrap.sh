@@ -71,7 +71,7 @@ section "INSTALANDO PYENV"
 # ---------------------------------------------------------------------------
 
 info "Instalando pyenv..."
-ssh_run "curl https://pyenv.run | bash"
+ssh_run 'if [[ ! -d "$HOME/.pyenv" ]]; then curl https://pyenv.run | bash; else echo "pyenv já instalado"; fi'
 
 ssh_run 'cat >> ~/.bashrc << '"'"'PYENV_EOF'"'"'
 
@@ -93,7 +93,7 @@ section "INSTALANDO POETRY"
 # ---------------------------------------------------------------------------
 
 info "Instalando poetry..."
-ssh_run "curl -sSL https://install.python-poetry.org | python3 -"
+ssh_run 'if command -v poetry &>/dev/null; then echo "poetry já instalado"; else curl -sSL https://install.python-poetry.org | python3 -; fi'
 
 ssh_run 'cat >> ~/.bashrc << '"'"'POETRY_EOF'"'"'
 export PATH="$HOME/.local/bin:$PATH"
@@ -108,10 +108,7 @@ section "INSTALANDO PYTHON 3.12"
 # ---------------------------------------------------------------------------
 
 info "Instalando Python 3.12 via pyenv..."
-ssh_run 'export PYENV_ROOT="$HOME/.pyenv" && \
-         export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH" && \
-         eval "$(pyenv init --path)" && \
-         pyenv install 3.12.9 || pyenv install 3.12.8 || pyenv install 3.12.7'
+ssh_run 'export PYENV_ROOT="$HOME/.pyenv" && export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH" && eval "$(pyenv init --path)" && if pyenv versions --bare | grep -q "3.12"; then echo "Python 3.12 já instalado"; else pyenv install 3.12.9 || pyenv install 3.12.8 || pyenv install 3.12.7; fi'
 
 # ---------------------------------------------------------------------------
 section "CRIANDO DIRETÓRIO DA APLICAÇÃO"
