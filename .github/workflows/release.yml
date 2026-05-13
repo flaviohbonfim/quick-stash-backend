@@ -21,6 +21,7 @@ jobs:
       - name: Package release
         run: |
           tar -czf quick-stash-${{ steps.tag.outputs.tag }}.tar.gz \
+            --ignore-failed-read \
             --exclude='.git' \
             --exclude='.venv' \
             --exclude='__pycache__' \
