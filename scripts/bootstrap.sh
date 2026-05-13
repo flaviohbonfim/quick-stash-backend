@@ -76,10 +76,17 @@ ssh_run "curl https://pyenv.run | bash"
 ssh_run 'cat >> ~/.bashrc << '"'"'PYENV_EOF'"'"'
 
 export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
+export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 eval "$(pyenv init --path)"
 eval "$(pyenv init -)"
 PYENV_EOF'
+
+ssh_run 'cat >> ~/.profile << '"'"'PROFILE_EOF'"'"'
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+eval "$(pyenv init --path)" 2>/dev/null || true
+eval "$(pyenv init -)" 2>/dev/null || true
+PROFILE_EOF'
 
 # ---------------------------------------------------------------------------
 section "INSTALANDO POETRY"
@@ -91,6 +98,20 @@ ssh_run "curl -sSL https://install.python-poetry.org | python3 -"
 ssh_run 'cat >> ~/.bashrc << '"'"'POETRY_EOF'"'"'
 export PATH="$HOME/.local/bin:$PATH"
 POETRY_EOF'
+
+ssh_run 'cat >> ~/.profile << '"'"'PROFILE2_EOF'"'"'
+export PATH="$HOME/.local/bin:$PATH"
+PROFILE2_EOF'
+
+# ---------------------------------------------------------------------------
+section "INSTALANDO PYTHON 3.12"
+# ---------------------------------------------------------------------------
+
+info "Instalando Python 3.12 via pyenv..."
+ssh_run 'export PYENV_ROOT="$HOME/.pyenv" && \
+         export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH" && \
+         eval "$(pyenv init --path)" && \
+         pyenv install 3.12.9 || pyenv install 3.12.8 || pyenv install 3.12.7'
 
 # ---------------------------------------------------------------------------
 section "CRIANDO DIRETÓRIO DA APLICAÇÃO"
@@ -116,6 +137,7 @@ ssh_run "sudo mv /tmp/auto-deploy.sh /usr/local/bin/quick-stash-auto-deploy.sh &
 
 info "Registrando cron (a cada 5 minutos)..."
 ssh_run "(crontab -l 2>/dev/null | grep -v quick-stash-auto-deploy; \
+          echo 'PATH=/home/ubuntu/.pyenv/shims:/home/ubuntu/.pyenv/bin:/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'); \
           echo '*/5 * * * * /usr/local/bin/quick-stash-auto-deploy.sh >> /var/log/quick-stash-deploy.log 2>&1') | crontab -"
 
 ssh_run "sudo touch /var/log/quick-stash-deploy.log && \

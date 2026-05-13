@@ -12,6 +12,12 @@ VERSION_FILE="$APP_DIR/.deployed_version"
 WORK_DIR="/tmp/quick-stash-deploy"
 LOG_TAG="[quick-stash-deploy]"
 
+# Configurar ambiente pyenv/poetry desde o início
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$HOME/.local/bin:$PATH"
+eval "$(pyenv init --path)" 2>/dev/null || true
+eval "$(pyenv init -)" 2>/dev/null || true
+
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') $LOG_TAG $*"; }
 
 # ---------------------------------------------------------------------------
@@ -110,14 +116,16 @@ rsync -a --delete \
 log "Instalando dependências com poetry..."
 cd "$APP_DIR"
 
-# Garantir que pyenv está disponível
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init --path)" 2>/dev/null || true
-eval "$(pyenv init -)" 2>/dev/null || true
+# Verificar se poetry está instalado
+if ! command -v poetry &>/dev/null; then
+  log "ERROR: poetry não encontrado no PATH."
+  log "ERROR: Verifique se poetry foi instalado pelo bootstrap.sh"
+  rm -rf "$WORK_DIR"
+  exit 1
+fi
 
 # Encontrar versão do Python instalada pelo pyenv
-PYTHON_VERSION=$(pyenv versions --bare | grep "3.12" | head -1)
+PYTHON_VERSION=$(pyenv versions --bare 2>/dev/null | grep "3.12" | head -1)
 
 if [[ -z "$PYTHON_VERSION" ]]; then
   log "ERROR: Python 3.12 não encontrado no pyenv. Execute o bootstrap.sh novamente."
@@ -126,19 +134,48 @@ if [[ -z "$PYTHON_VERSION" ]]; then
 fi
 
 PYTHON_PATH="$HOME/.pyenv/versions/$PYTHON_VERSION/bin/python"
+log "Python encontrado: $PYTHON_PATH (versão: $PYTHON_VERSION)"
 
-# Verificar se o poetry virtual env existe, senão criar
+# Verificar se o Python funciona
+if ! "$PYTHON_PATH" --version &>/dev/null; then
+  log "ERROR: Python não funciona: $PYTHON_PATH"
+  rm -rf "$WORK_DIR"
+  exit 1
+fi
+
+# Configurar poetry para usar venv no projeto
+poetry config virtualenvs.in-project true 2>/dev/null || true
+poetry config virtualenvs.create true 2>/dev/null || true
+
+# Criar virtualenv se não existir
 if [[ ! -d "$APP_DIR/.venv" ]]; then
   log "Criando virtualenv..."
   "$PYTHON_PATH" -m venv "$APP_DIR/.venv"
 fi
 
+# Usar o Python correto no poetry
+log "Configurando poetry para usar Python $PYTHON_VERSION..."
+poetry env use "$PYTHON_PATH" 2>&1 || true
+
+# Verificar se o poetry.lock existe
+if [[ ! -f "$APP_DIR/poetry.lock" ]]; then
+  log "ERROR: poetry.lock não encontrado em $APP_DIR"
+  rm -rf "$WORK_DIR"
+  exit 1
+fi
+
 log "Executando poetry install..."
-# Usar o poetry instalado globalmente, mas apontar para o venv do projeto
-PATH="$HOME/.local/bin:$PATH" poetry install --no-interaction --no-ansi 2>&1 | tail -5 || {
-  log "WARN: poetry install falhou, tentando com pip..."
-  "$PYTHON_PATH" -m pip install -r /dev/null 2>&1 || true
+poetry install --no-interaction --no-ansi --no-root 2>&1 || {
+  log "ERROR: poetry install falhou."
+  log "Tentando instalar com pip como fallback..."
+  if [[ -f "$APP_DIR/.venv/bin/python" ]]; then
+    "$APP_DIR/.venv/bin/python" -m pip install -r /dev/null 2>&1 || true
+  fi
+  rm -rf "$WORK_DIR"
+  exit 1
 }
+
+log "Dependências instaladas com sucesso."
 
 # ---------------------------------------------------------------------------
 # Reiniciar serviço via systemd
@@ -148,7 +185,7 @@ log "Reiniciando serviço..."
 sudo systemctl daemon-reload
 
 # Atualizar o ExecStart no unit file com o caminho correto do Python
-sudo sed -i "s|ExecStart=.*|ExecStart=$HOME/.pyenv/versions/$PYTHON_VERSION/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000|" /etc/systemd/system/quick-stash.service
+sudo sed -i "s|ExecStart=.*|ExecStart=$PYTHON_PATH -m uvicorn main:app --host 127.0.0.1 --port 8000|" /etc/systemd/system/quick-stash.service
 
 sudo systemctl restart quick-stash || {
   log "ERROR: Falha ao reiniciar o serviço."
@@ -157,13 +194,16 @@ sudo systemctl restart quick-stash || {
 }
 
 # Verificar se o serviço está rodando
-sleep 2
+sleep 3
 if ! systemctl is-active --quiet quick-stash; then
   log "ERROR: O serviço quick-stash não está ativo após reinício."
-  log "Verifique: systemctl status quick-stash"
+  log "Logs do serviço:"
+  sudo journalctl -u quick-stash --no-pager -n 20
   rm -rf "$WORK_DIR"
   exit 1
 fi
+
+log "Serviço quick-stash está ativo."
 
 # ---------------------------------------------------------------------------
 # Registrar versão deployada
