@@ -154,10 +154,6 @@ fi
 poetry config virtualenvs.in-project true 2>/dev/null || true
 poetry config virtualenvs.create true 2>/dev/null || true
 
-# Configurar poetry para usar o caminho direto do Python (sem depender de shims)
-log "Configurando poetry para usar Python $PYTHON_VERSION..."
-poetry config virtualenvs.path "$APP_DIR/.venv" 2>/dev/null || true
-
 # Verificar se o poetry.lock existe
 if [[ ! -f "$APP_DIR/poetry.lock" ]]; then
   log "ERROR: poetry.lock não encontrado em $APP_DIR"
@@ -183,11 +179,12 @@ log "Dependências instaladas com sucesso."
 # ---------------------------------------------------------------------------
 
 log "Reiniciando serviço..."
+
+# Atualizar o ExecStart no unit file com o caminho do Python do venv
+VENV_PYTHON="$APP_DIR/.venv/bin/python"
+sudo sed -i "s|ExecStart=.*|ExecStart=$VENV_PYTHON -m uvicorn main:app --host 127.0.0.1 --port 8000|" /etc/systemd/system/quick-stash.service
+
 sudo systemctl daemon-reload
-
-# Atualizar o ExecStart no unit file com o caminho correto do Python
-sudo sed -i "s|ExecStart=.*|ExecStart=$PYTHON_PATH -m uvicorn main:app --host 127.0.0.1 --port 8000|" /etc/systemd/system/quick-stash.service
-
 sudo systemctl restart quick-stash || {
   log "ERROR: Falha ao reiniciar o serviço."
   rm -rf "$WORK_DIR"
